@@ -960,3 +960,162 @@ sudo: I'm sorry deploy. I'm afraid I can't do that
 ```
 
 This confirmed that `deploy` does not have unrestricted Docker access.
+
+---
+
+# Part 7: Protect the Docker Compose Configuration
+
+## Goal
+
+Ensure that the privileged Docker Compose configuration cannot be modified by the `deploy` user.
+
+This is important because the `deploy` user is authorized to execute the Compose configuration through `sudo`.
+
+If `deploy` could modify that configuration, it could potentially alter the Docker deployment definition and use the approved command to perform unintended privileged operations.
+
+Therefore:
+
+- `root` owns the Compose configuration.
+- `deploy` can read the configuration.
+- `deploy` cannot modify the configuration.
+- `deploy` can invoke only the explicitly approved Compose commands.
+
+## Step 1 — Create the Deployment Configuration
+
+The application deployment directory is:
+
+```text
+/opt/task-manager/
+```
+
+The Docker Compose configuration was created at:
+
+```text
+/opt/task-manager/docker-compose.yml
+```
+
+The configuration uses the already-built Docker image from Docker Hub rather than building the application on the EC2 host.
+
+```yaml
+services:
+  api:
+    image: abbasrana01/fastapi-task-manager:f9fd28377070fd60b8830f904bc5464727eabbbd
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+```
+
+### Why image is used instead of build
+
+The FastAPI application is already containerized and published to Docker Hub.
+
+Therefore, the EC2 host does not need:
+
+- FastAPI source code
+- The application's Dockerfile
+- Build dependencies
+- A local Docker image build process
+
+The server only needs to pull and run the published image.
+
+## Step 2 — Use a Specific Image Tag
+
+The deployment uses:
+
+```text
+abbasrana01/fastapi-task-manager:f9fd28377070fd60b8830f904bc5464727eabbbd
+```
+
+rather than:
+
+```text
+abbasrana01/fastapi-task-manager:latest
+```
+
+Using a specific tag makes the deployment more reproducible because the server is explicitly configured to run the intended image version rather than whatever image happens to be associated with `latest` in the future.
+
+## Step 3 — Configure the Application Port
+
+The Compose configuration contains:
+
+```yaml
+ports:
+  - "8000:8000"
+```
+
+This maps:
+
+```text
+EC2 host port 8000
+        |
+        v
+Container port 8000
+        |
+        v
+FastAPI / Uvicorn
+```
+
+The application is therefore directly reachable through port 8000 for the current deployment.
+
+HTTPS and reverse-proxy configuration using Nginx are intentionally deferred to a later hardening phase.
+
+## Step 4 — Configure Container Restart Behavior
+
+The Compose configuration contains:
+
+```yaml
+restart: unless-stopped
+```
+
+This instructs Docker to restart the container when appropriate, including after an unexpected container failure or Docker daemon/server restart, unless the container was explicitly stopped.
+
+This provides container-level resilience.
+
+A systemd service will be configured separately to provide host-level service management and boot-time orchestration.
+
+## Step 5 — Protect the Compose File
+
+The Compose file was assigned to `root`:
+
+```bash
+sudo chown root:root /opt/task-manager/docker-compose.yml
+```
+
+Permissions were set to:
+
+```bash
+sudo chmod 644 /opt/task-manager/docker-compose.yml
+```
+
+The resulting permissions are conceptually:
+
+```text
+root   -> read/write
+others -> read
+```
+
+The file does not need execute permissions because a YAML Compose file is configuration data, not an executable program.
+
+Docker Compose reads the YAML configuration when the Compose command is executed.
+
+For example:
+
+```bash
+sudo docker compose -f /opt/task-manager/docker-compose.yml up -d
+```
+
+Here:
+
+```text
+docker compose
+     |
+     | reads
+     v
+docker-compose.yml
+     |
+     | defines
+     v
+Docker resources
+```
+
+The YAML file itself is never executed as a Linux executable.

@@ -361,3 +361,422 @@ ssh server-deploy
 Both must successfully establish a new SSH session.
 
 Only after both tests succeed should the original SSH session be closed.
+
+# Part 4: Configure Permissions
+
+## Goal
+
+Create a dedicated application/deployment directory for the Dockerized Task Manager application while maintaining the principle of least privilege.
+
+The application will be deployed using Docker, so the FastAPI source code does not need to exist directly on the host. The host-side directory will be used for deployment-related files/configuration.
+
+Application directory:
+
+```text
+/opt/task-manager/
+```
+
+---
+
+## Step 1 — Inspect `/opt`
+
+While logged in as the `deploy` user:
+
+```bash
+ls -ld /opt
+```
+
+```bash
+ls -la /opt
+```
+
+`/opt` is owned by `root:root`, which is expected for a system-level application directory.
+
+The `deploy` user should not have permission to create arbitrary directories directly under `/opt`.
+
+---
+
+## Step 2 — Create the Application Directory
+
+Switch to the administrative `ubuntu` account:
+
+```bash
+exit
+```
+
+Then connect using the administrative SSH alias.
+
+Verify:
+
+```bash
+whoami
+```
+
+Expected:
+
+```text
+ubuntu
+```
+
+Create the application directory:
+
+```bash
+sudo mkdir /opt/task-manager
+```
+
+The directory is initially owned by `root`.
+
+---
+
+## Step 3 — Assign Ownership to `deploy`
+
+Give the deployment user ownership of the application directory:
+
+```bash
+sudo chown deploy:deploy /opt/task-manager
+```
+
+Verify:
+
+```bash
+ls -ld /opt/task-manager
+```
+
+Expected:
+
+```text
+drwxr-xr-x 2 deploy deploy ... /opt/task-manager
+```
+
+The directory remains underneath the root-owned `/opt` directory, but `deploy` now controls its own application directory.
+
+---
+
+## Step 4 — Verify `deploy` Can Manage Its Application Directory
+
+Switch back to the deployment account:
+
+```bash
+exit
+```
+
+Then:
+
+```bash
+ssh server-deploy
+```
+
+Verify:
+
+```bash
+whoami
+```
+
+Expected:
+
+```text
+deploy
+```
+
+Enter the application directory:
+
+```bash
+cd /opt/task-manager
+```
+
+Verify the location:
+
+```bash
+pwd
+```
+
+Expected:
+
+```text
+/opt/task-manager
+```
+
+Test that `deploy` can create files without `sudo`:
+
+```bash
+touch permission-test.txt
+```
+
+Verify ownership:
+
+```bash
+ls -la
+```
+
+The test file should be owned by `deploy:deploy`.
+
+Remove the test file:
+
+```bash
+rm permission-test.txt
+```
+
+Verify the directory is clean:
+
+```bash
+ls -la
+```
+
+### Result
+
+The permission model has been verified:
+
+* `/opt` remains owned by `root`
+* `/opt/task-manager` is owned by `deploy`
+* `deploy` can manage files inside `/opt/task-manager`
+* `deploy` does not require `sudo` to manage its application files
+* `deploy` has not been added to the `sudo` group
+
+---
+
+# Part 5: Install Required Packages
+
+## Goal
+
+Install Docker Engine and Docker Compose on the Ubuntu EC2 instance.
+
+The FastAPI Task Manager application is already Dockerized and available on Docker Hub, so the EC2 host only needs the Docker runtime and deployment configuration.
+
+Docker was installed from Docker's official APT repository rather than Ubuntu's `docker.io` package.
+
+---
+
+## Step 1 — Switch to the Administrative User
+
+Docker installation requires administrative privileges.
+
+If currently logged in as `deploy`:
+
+```bash
+exit
+```
+
+Connect using the administrative SSH alias.
+
+Verify:
+
+```bash
+whoami
+```
+
+Expected:
+
+```text
+ubuntu
+```
+
+---
+
+## Step 2 — Update APT Package Information
+
+```bash
+sudo apt update
+```
+
+This refreshes the package information from the configured APT repositories.
+
+It does not install or upgrade packages by itself.
+
+---
+
+## Step 3 — Install Repository Prerequisites
+
+```bash
+sudo apt install ca-certificates curl
+```
+
+These packages were already installed and up to date on the server.
+
+* `ca-certificates` provides trusted CA certificates for HTTPS connections.
+* `curl` is used to retrieve Docker's repository signing key.
+
+No packages needed to be installed or upgraded at this stage.
+
+---
+
+## Step 4 — Create the APT Keyring Directory
+
+```bash
+sudo install -m 0755 -d /etc/apt/keyrings
+```
+
+This creates the directory used to store repository signing keys.
+
+---
+
+## Step 5 — Add Docker's Repository Signing Key
+
+```bash
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+```
+
+The key allows APT to verify packages downloaded from Docker's official repository.
+
+Make the key readable:
+
+```bash
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+```
+
+---
+
+## Step 6 — Add Docker's Official APT Repository
+
+Create the repository configuration:
+
+```bash
+sudo tee /etc/apt/sources.list.d/docker.sources <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/ubuntu
+Suites: $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
+Components: stable
+Architectures: $(dpkg --print-architecture)
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+```
+
+This creates:
+
+```text
+/etc/apt/sources.list.d/docker.sources
+```
+
+The file tells APT to obtain Docker packages from Docker's official repository.
+
+The command automatically determines:
+
+* Ubuntu release codename
+* CPU architecture
+
+---
+
+## Step 7 — Refresh APT
+
+After adding the Docker repository:
+
+```bash
+sudo apt update
+```
+
+The output confirmed that Docker's repository was successfully recognized:
+
+```text
+https://download.docker.com/linux/ubuntu
+```
+---
+
+## Step 8 — Install Docker Engine
+
+Install Docker Engine and its required components:
+
+```bash
+sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+```
+
+Installed components:
+
+| Package                 | Purpose                                    |
+| ----------------------- | ------------------------------------------ |
+| `docker-ce`             | Docker Engine / daemon                     |
+| `docker-ce-cli`         | `docker` command-line interface            |
+| `containerd.io`         | Container runtime used by Docker           |
+| `docker-buildx-plugin`  | Modern Docker image-building functionality |
+| `docker-compose-plugin` | Provides the `docker compose` command      |
+
+---
+
+## Step 9 — Verify Docker Installation
+
+Check the Docker CLI:
+
+```bash
+docker --version
+```
+
+Check Docker Compose:
+
+```bash
+docker compose version
+```
+
+---
+
+## Step 10 — Verify the Docker Service
+
+```bash
+sudo systemctl status docker
+```
+
+The service should show:
+
+```text
+Active: active (running)
+```
+
+The Docker service was also shown as:
+
+```text
+enabled
+```
+
+This means Docker is configured to start automatically when the server boots.
+
+---
+
+## Step 11 — Test Docker End-to-End
+
+Run Docker's test image:
+
+```bash
+sudo docker run --rm hello-world
+```
+
+Expected output includes:
+
+```text
+Hello from Docker!
+```
+
+This message shows that the installation appears to be working correctly.
+
+This verifies the complete Docker workflow:
+
+1. Docker CLI contacted the Docker daemon.
+2. Docker pulled the `hello-world` image from Docker Hub.
+3. Docker created a container.
+4. The container executed successfully.
+5. `--rm` automatically removed the test container after it exited.
+
+### Result
+
+Docker Engine and Docker Compose are installed and working correctly.
+
+---
+
+## Important Security Decision — Docker Access for `deploy`
+
+At this stage, `deploy` has **not** been added to the `docker` group.
+
+Do **not** run:
+
+```bash
+sudo usermod -aG docker deploy
+```
+
+yet.
+
+Membership in the Docker group provides access to the Docker daemon and can effectively provide root-equivalent control over the host.
+
+This is particularly important for this project because the `deploy` user was intentionally created as a restricted, non-root deployment identity.
+
+We will decide how the deployment workflow should interact with Docker before granting `deploy` any additional privileges.
+Our next part will therefore be **designing the Docker deployment permissions**, not blindly running `usermod -aG docker deploy`.
+
+Once we settle that, we'll use your actual Docker Hub image to deploy the Task Manager.
+
+

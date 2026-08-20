@@ -1119,3 +1119,163 @@ Docker resources
 ```
 
 The YAML file itself is never executed as a Linux executable.
+
+---
+
+# Part 8: Deploy the Task Manager Application
+
+## Goal
+
+Pull the published Task Manager Docker image from Docker Hub and start the application on the EC2 instance.
+
+## Step 1 — Pull the Docker Image
+
+As the `deploy` user:
+
+```bash
+sudo docker compose -f /opt/task-manager/docker-compose.yml pull
+```
+
+The image was successfully downloaded:
+
+```text
+[+] pull 9/9
+ ✔ Image abbasrana01/fastapi-task-manager:f9fd28377070fd60b8830f904bc5464727eabbbd Pulled
+```
+
+This confirmed that:
+
+- The scoped `sudo` rule allowed the operation.
+- Docker Compose successfully read the deployment configuration.
+- The EC2 instance could communicate with Docker Hub.
+- The requested application image was successfully pulled.
+
+## Step 2 — Start the Application
+
+The application was started with:
+
+```bash
+sudo docker compose -f /opt/task-manager/docker-compose.yml up -d
+```
+
+Docker created the Compose network and application container:
+
+```text
+[+] up 2/2
+ ✔ Network task-manager_default Created
+ ✔ Container task-manager-api-1 Started
+```
+
+The `-d` option runs the containers in detached mode, allowing the SSH session to continue without attaching to the application's output.
+
+## Step 3 — Verify Container Status
+
+The running Compose stack was checked:
+
+```bash
+sudo docker compose -f /opt/task-manager/docker-compose.yml ps
+```
+
+The container was reported as:
+
+```text
+task-manager-api-1
+```
+
+with status:
+
+```text
+Up
+```
+
+The port mapping was:
+
+```text
+0.0.0.0:8000->8000/tcp
+[::]:8000->8000/tcp
+```
+
+This confirms that Docker published port 8000 from the container to the EC2 host.
+
+## Step 4 — Verify Application Startup Logs
+
+Application logs were checked using:
+
+```bash
+sudo docker compose -f /opt/task-manager/docker-compose.yml logs
+```
+
+The logs confirmed successful FastAPI startup:
+
+```text
+Started server process [1]
+Waiting for application startup.
+Application startup complete.
+Uvicorn running on http://0.0.0.0:8000
+```
+
+This confirmed that:
+
+- Uvicorn started successfully.
+- FastAPI completed application startup.
+- The application is listening on container port 8000.
+
+No missing environment-variable or secret configuration error prevented startup.
+
+## Step 5 — Test the Application Locally
+
+The application was tested from the EC2 host:
+
+```bash
+curl http://localhost:8000
+```
+
+Response:
+
+```text
+{"detail":"Not Found"}
+```
+
+This is expected because the API does not define a route for `/`.
+
+The response nevertheless confirms that an HTTP request reached the FastAPI application.
+
+## Step 6 — Test FastAPI Swagger Documentation
+
+The Swagger UI endpoint was tested:
+
+```bash
+curl http://localhost:8000/docs
+```
+
+The response returned the FastAPI Swagger UI HTML page.
+
+The page identifies the application as:
+
+```text
+Mini Task Manager API - Swagger UI
+```
+
+This confirms that the FastAPI application is serving its documentation endpoint successfully.
+
+## Result
+
+The Dockerized Task Manager application is successfully deployed and running on the EC2 instance.
+
+Current application flow:
+
+```text
+Docker Hub
+    |
+    v
+EC2 Docker Engine
+    |
+    v
+task-manager-api-1
+    |
+    v
+FastAPI / Uvicorn
+    |
+    v
+EC2 port 8000
+```

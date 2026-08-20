@@ -779,4 +779,184 @@ Our next part will therefore be **designing the Docker deployment permissions**,
 
 Once we settle that, we'll use your actual Docker Hub image to deploy the Task Manager.
 
+---
 
+# Part 6: Configure Restricted Docker Deployment Permissions
+
+## Goal
+
+Allow the non-root `deploy` user to manage the Task Manager Docker Compose application without granting unrestricted access to the Docker daemon.
+
+The `deploy` user was intentionally created as a restricted deployment identity. Therefore, it should not be added to the `docker` group.
+
+Instead, a scoped `sudo` policy will allow `deploy` to execute only the Docker Compose commands required to manage this specific application.
+
+The deployment configuration will also be protected so that `deploy` cannot modify the privileged Compose file and then execute arbitrary Docker configuration through the approved command.
+
+---
+
+## Security Decision
+
+The Docker group was deliberately **not** used.
+
+Do not run:
+
+```bash
+sudo usermod -aG docker deploy
+```
+
+Membership in the Docker group provides access to the Docker daemon and can effectively provide root-equivalent control over the host.
+
+Instead, the deployment uses scoped sudo permissions.
+
+The intended model is:
+
+```text
+deploy
+   |
+   | sudo
+   v
+Approved Docker Compose commands
+   |
+   v
+Root-owned Compose configuration
+   |
+   v
+Docker daemon
+   |
+   v
+Task Manager container
+```
+
+This provides a narrower privilege boundary than unrestricted Docker daemon access.
+
+## Step 1 — Confirm the Docker Binary Path
+
+As the administrative `ubuntu` user:
+
+```bash
+which docker
+```
+
+Output:
+
+```text
+/usr/bin/docker
+```
+
+The absolute path is used in the sudoers configuration rather than relying on the user's PATH.
+
+This ensures that the sudo rule refers to the intended Docker executable.
+
+## Step 2 — Create the Scoped Sudoers Policy
+
+The sudoers configuration was created using `visudo`:
+
+```bash
+sudo visudo -f /etc/sudoers.d/deploy-docker
+```
+
+The following policy was configured:
+
+```text
+# Allow 'deploy' to manage the Task Manager Docker Compose stack without a
+# password prompt, scoped strictly to this application's compose file.
+# No general 'docker' access is granted — deploy cannot run arbitrary
+# docker/docker compose commands, only the ones listed below.
+
+
+Cmnd_Alias TASKMANAGER_DOCKER = /usr/bin/docker compose -f /opt/task-manager/docker-compose.yml pull, \
+                                 /usr/bin/docker compose -f /opt/task-manager/docker-compose.yml up -d, \
+                                 /usr/bin/docker compose -f /opt/task-manager/docker-compose.yml down, \
+                                 /usr/bin/docker compose -f /opt/task-manager/docker-compose.yml restart, \
+                                 /usr/bin/docker compose -f /opt/task-manager/docker-compose.yml ps, \
+                                 /usr/bin/docker compose -f /opt/task-manager/docker-compose.yml logs
+
+
+deploy ALL=(root) NOPASSWD: TASKMANAGER_DOCKER
+```
+
+Allowed operations
+
+The `deploy` user can execute only these Compose operations for the Task Manager stack:
+
+```text
+pull
+up -d
+down
+restart
+ps
+logs
+```
+
+General Docker commands are not permitted.
+
+For example:
+
+```bash
+sudo docker ps
+```
+
+is intentionally denied.
+
+## Step 3 — Validate the Sudoers Configuration
+
+The sudoers configuration was validated with:
+
+```bash
+sudo visudo -c
+```
+
+The configuration parsed successfully.
+
+## Step 4 — Verify Sudoers File Ownership and Permissions
+
+The sudoers file was checked:
+
+```bash
+sudo ls -l /etc/sudoers.d/deploy-docker
+```
+
+The file is owned by:
+
+```text
+root:root
+```
+
+Its permissions were subsequently tightened to:
+
+```text
+0440
+```
+
+Resulting permissions:
+
+```text
+-r--r----- 1 root root ... /etc/sudoers.d/deploy-docker
+```
+
+This prevents the `deploy` user from modifying the sudo policy.
+
+## Step 5 — Verify Effective Deployment Permissions
+
+As the `deploy` user:
+
+```bash
+sudo -l
+```
+
+The output showed only the explicitly permitted Docker Compose commands.
+
+An unrestricted Docker command was tested:
+
+```bash
+sudo docker ps
+```
+
+The command was denied:
+
+```text
+sudo: I'm sorry deploy. I'm afraid I can't do that
+```
+
+This confirmed that `deploy` does not have unrestricted Docker access.

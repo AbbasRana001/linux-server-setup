@@ -1279,3 +1279,154 @@ FastAPI / Uvicorn
     v
 EC2 port 8000
 ```
+
+---
+
+# Part 9: Configure UFW
+
+## Goal
+
+Enable the host firewall and allow only the inbound traffic currently required by the deployment.
+
+UFW was not configured until after the application had been successfully started and tested.
+
+## Step 1 — Verify the Initial UFW State
+
+The firewall was checked with:
+
+```bash
+sudo ufw status verbose
+```
+
+Initial result:
+
+```text
+Status: inactive
+```
+
+No UFW rules were active at that point.
+
+## Step 2 — Confirm SSH Port
+
+The effective SSH configuration was checked.
+
+SSH is running on:
+
+```text
+22/tcp
+```
+
+This port must be allowed before enabling UFW to avoid locking out the administrative SSH session.
+
+## Step 3 — Allow SSH
+
+The SSH port was allowed:
+
+```bash
+sudo ufw allow 22/tcp
+```
+
+This permits inbound SSH administration.
+
+## Step 4 — Allow the Application Port
+
+Because the current deployment directly exposes FastAPI on port 8000, the application port was allowed:
+
+```bash
+sudo ufw allow 8000/tcp
+```
+
+HTTP and HTTPS ports were intentionally not opened at this stage because Nginx and TLS/HTTPS are deferred to a later phase.
+
+## Step 5 — Configure UFW Defaults
+
+Incoming traffic was configured to be denied by default:
+
+```bash
+sudo ufw default deny incoming
+```
+
+Outgoing traffic was allowed by default:
+
+```bash
+sudo ufw default allow outgoing
+```
+
+This follows a default-deny approach for unsolicited inbound traffic.
+
+## Step 6 — Enable UFW
+
+After confirming that SSH port 22 had been allowed, UFW was enabled:
+
+```bash
+sudo ufw enable
+```
+
+## Step 7 — Verify the Firewall
+
+The final firewall configuration was verified:
+
+```bash
+sudo ufw status verbose
+```
+
+Result:
+
+```text
+Status: active
+Logging: on (low)
+Default: deny (incoming), allow (outgoing), deny (routed)
+New profiles: skip
+
+
+To                         Action      From
+--                         ------      ----
+22/tcp                     ALLOW IN    Anywhere
+8000/tcp                   ALLOW IN    Anywhere
+22/tcp (v6)                ALLOW IN    Anywhere (v6)
+8000/tcp                   ALLOW IN    Anywhere (v6)
+```
+
+## Result
+
+UFW is active with a default-deny inbound policy.
+
+Currently permitted inbound traffic:
+
+```text
+22/tcp    → SSH administration
+8000/tcp  → FastAPI application
+```
+
+IPv4 and IPv6 rules are both configured.
+
+Nginx, HTTP, and HTTPS have not yet been configured.
+
+## Current Deployment State
+
+At the end of this phase, the EC2 server has the following configuration:
+
+```text
+EC2 Instance
+│
+├── SSH
+│   └── Port 22
+│
+├── UFW
+│   ├── Default incoming: DENY
+│   ├── SSH 22/tcp: ALLOW
+│   └── FastAPI 8000/tcp: ALLOW
+│
+├── Docker Engine
+│
+├── Docker Compose
+│
+└── /opt/task-manager/
+    └── docker-compose.yml
+        └── root:root
+            └── Task Manager image
+                └── task-manager-api-1
+                    └── FastAPI :8000
+```
+
+The application has been successfully pulled, started, and tested.

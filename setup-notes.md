@@ -1570,3 +1570,57 @@ Container task-manager-api-1 Running
 ```
 
 Therefore, systemd successfully started the Docker Compose application.
+
+---
+
+# Part 13: Verify Reboot Persistence
+
+**Goal**
+
+Verify that the Task Manager application automatically returns after an EC2 instance reboot.
+
+This is an important final test because enabling a systemd service is only useful if the application actually starts correctly during the server's boot process.
+
+## Step 1 — Reboot the EC2 Instance
+
+Reboot the server:
+
+```bash
+sudo reboot
+```
+
+The SSH connection will terminate as the EC2 instance restarts.
+
+Reconnect after the server becomes available.
+
+## Step 2 — Verify the systemd Service After Reboot
+
+Check:
+
+```bash
+sudo systemctl status task-manager.service --no-pager
+```
+
+The service should be active.
+
+## Step 3 — Verify the Docker Container After Reboot
+
+Run:
+
+```bash
+sudo docker compose -f /opt/task-manager/docker-compose.yml ps
+```
+
+The Task Manager container should be running.
+
+## Step 4 — Verify the Application After Reboot
+
+Test:
+
+```bash
+curl http://localhost:8000/docs
+```
+
+The FastAPI Swagger UI endpoint should respond successfully.
+
+This confirms that the application was automatically restored after the EC2 instance reboot.

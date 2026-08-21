@@ -1505,3 +1505,68 @@ Initial status:
 ```
 
 This was expected because the service had been created and loaded but had not yet been started.
+
+---
+
+# Part 11: Enable and Start the systemd Service
+
+**Goal**
+
+Enable the Task Manager systemd service so that it starts automatically during system boot, and verify that systemd can successfully start the Docker Compose application.
+
+## Step 1 — Enable the Service
+
+Enable the service:
+
+```bash
+sudo systemctl enable task-manager.service
+```
+
+This configures systemd to start the service automatically when the system reaches the appropriate boot target.
+
+## Step 2 — Start the Service
+
+Start the application through systemd:
+
+```bash
+sudo systemctl start task-manager.service
+```
+
+## Step 3 — Verify Service Status
+
+Check:
+
+```bash
+sudo systemctl status task-manager.service
+```
+
+The service reported:
+
+```
+● task-manager.service - Task Manager Application
+     Loaded: loaded (/etc/systemd/system/task-manager.service; enabled; preset: enabled)
+     Active: active (exited)
+```
+
+The `active (exited)` state is expected for the configured `Type=oneshot` service with:
+
+```
+RemainAfterExit=yes
+```
+
+The important result was:
+
+```
+ExecStart=/usr/bin/docker compose -f /opt/task-manager/docker-compose.yml up -d
+(code=exited, status=0/SUCCESS)
+```
+
+This confirms that the systemd `ExecStart` operation completed successfully.
+
+The service output also confirmed:
+
+```
+Container task-manager-api-1 Running
+```
+
+Therefore, systemd successfully started the Docker Compose application.

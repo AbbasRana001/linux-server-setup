@@ -1430,3 +1430,78 @@ EC2 Instance
 ```
 
 The application has been successfully pulled, started, and tested.
+
+---
+
+# Part 10: Create a systemd Service
+
+## Goal
+
+Configure `systemd` to manage the Docker Compose Task Manager application as a system service.
+
+The Docker Compose application was already running successfully. The purpose of this stage is to integrate the Compose stack with the host's systemd service manager so that the application can be started automatically during system boot and managed using standard `systemctl` commands.
+
+The systemd service is:
+
+```text
+/etc/systemd/system/task-manager.service
+```
+
+## Step 1 — Create the systemd Unit
+
+Create the service file:
+
+```bash
+sudo nano /etc/systemd/system/task-manager.service
+```
+
+The following configuration was used:
+
+```ini
+[Unit]
+Description=Task Manager Application
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/task-manager
+ExecStart=/usr/bin/docker compose -f /opt/task-manager/docker-compose.yml up -d
+ExecStop=/usr/bin/docker compose -f /opt/task-manager/docker-compose.yml down
+RemainAfterExit=yes
+TimeoutStartSec=0
+
+
+[Install]
+WantedBy=multi-user.target
+```
+
+## Step 3 — Reload systemd
+
+After creating the unit file, reload systemd:
+
+```bash
+sudo systemctl daemon-reload
+```
+
+This causes systemd to re-read its unit configuration and recognize the newly created service.
+
+## Step 4 — Verify the Unit
+
+Check the service:
+
+```bash
+sudo systemctl status task-manager.service
+```
+
+Initial status:
+
+```text
+○ task-manager.service - Task Manager Application
+     Loaded: loaded (/etc/systemd/system/task-manager.service; disabled; preset: enabled)
+     Active: inactive (dead)
+```
+
+This was expected because the service had been created and loaded but had not yet been started.

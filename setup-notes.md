@@ -1624,3 +1624,68 @@ curl http://localhost:8000/docs
 The FastAPI Swagger UI endpoint should respond successfully.
 
 This confirms that the application was automatically restored after the EC2 instance reboot.
+
+---
+# Part 14: Configure a Stable Public IP with an Elastic IP
+
+## Goal
+
+Assign a stable public IP address to the EC2 instance.
+
+An EC2 instance's automatically assigned public IPv4 address can change when the instance is stopped and started. This would make a domain-based deployment unreliable because the DNS record would point to an address that could later become invalid.
+
+An AWS Elastic IP provides a persistent public IPv4 address that can remain associated with the EC2 instance across stop/start cycles.
+
+---
+
+## Step 1 — Allocate an Elastic IP
+
+From the AWS EC2 console:
+
+1. Open **EC2**.
+2. Navigate to **Network & Security → Elastic IPs**.
+3. Select **Allocate Elastic IP address**.
+4. Leave the default settings.
+5. Select **Allocate**.
+
+This creates a dedicated Elastic IP address in the AWS account.
+
+---
+
+## Step 2 — Associate the Elastic IP with the EC2 Instance
+
+Select the newly allocated Elastic IP and choose:
+
+```text
+Actions → Associate Elastic IP address
+
+Configure:
+
+Resource type: Instance
+
+Select the Task Manager EC2 instance and choose:
+
+Associate
+
+The Elastic IP is now associated with the EC2 instance.
+
+Important Note — Public IP Change
+
+Associating the Elastic IP changes the instance's public IPv4 address.
+
+Any existing SSH connection using the previous public IP may therefore disconnect or stop responding.
+
+This is expected behavior.
+
+After the association, the new Elastic IP should be obtained from the EC2 instance details and used for subsequent connections.
+
+For example:
+
+ssh -i MyServer.pem ubuntu@<elastic-ip>
+Cost Consideration
+
+AWS charges for public IPv4 addresses.
+
+Therefore, an Elastic IP should not be treated as completely free infrastructure.
+
+The address is required here because the deployment now needs a stable public endpoint for DNS and HTTPS.

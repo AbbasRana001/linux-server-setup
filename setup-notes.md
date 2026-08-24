@@ -2087,3 +2087,158 @@ FastAPI
 TLS terminates at Nginx.
 
 The FastAPI application continues listening on port 8000 inside the host/Docker networking path.
+
+---
+
+# Part 18: Update UFW for the Reverse Proxy and HTTPS
+
+## Goal
+
+Update the host firewall to reflect the new production request path.
+
+Previously, port 8000 was publicly exposed so that the FastAPI application could be accessed directly.
+
+With Nginx now acting as the public reverse proxy, external clients should access the application through HTTP/HTTPS rather than directly through port 8000.
+
+The intended public ports are now:
+
+```
+22   → SSH
+80   → HTTP
+443  → HTTPS
+```
+
+Port:
+
+```
+8000 → FastAPI
+```
+
+should no longer be publicly allowed.
+
+
+## Step 1 — Allow SSH
+
+Already permitted in previous steps
+
+
+## Step 2 — Allow HTTP
+
+Allow standard HTTP traffic:
+
+```bash
+sudo ufw allow 80/tcp
+```
+
+Port 80 is required for:
+
+- HTTP traffic
+- HTTP-to-HTTPS redirection
+- Let's Encrypt HTTP-based domain validation
+
+## Step 3 — Allow HTTPS
+
+Allow HTTPS traffic:
+
+```bash
+sudo ufw allow 443/tcp
+```
+
+Port 443 is the primary public application endpoint after HTTPS was configured.
+
+## Step 4 — Remove Direct Public Access to Port 8000
+
+Remove the previous UFW rule:
+
+```bash
+sudo ufw delete allow 8000/tcp
+```
+
+Port 8000 is no longer intended to be directly accessible from the public internet.
+
+The architecture is now:
+
+```
+Internet
+   |
+   +---- :22 ----> SSH
+   |
+   +---- :80 ----> Nginx
+   |
+   +---- :443 ---> Nginx
+                     |
+                     v
+                  :8000
+                     |
+                     v
+                 FastAPI
+```
+
+## Step 4 — Verify the Firewall Rules
+
+Run:
+
+```bash
+sudo ufw status verbose
+```
+
+The final firewall configuration should allow the required administrative and web ports while no longer allowing direct public access to port 8000.
+
+The intended policy is:
+
+```
+22/tcp   ALLOW
+80/tcp   ALLOW
+443/tcp  ALLOW
+```
+
+## Final Architecture After Reverse Proxy and HTTPS
+
+The deployment has now evolved from direct application exposure to a reverse-proxy-based architecture.
+
+### Previous Architecture
+
+```
+Internet
+   |
+   v
+EC2 :8000
+   |
+   v
+Docker
+   |
+   v
+FastAPI
+```
+
+### Current Architecture
+
+```
+                         Internet
+                            |
+                            v
+                 serverab.duckdns.org
+                            |
+                +-----------+-----------+
+                |                       |
+             HTTP :80               HTTPS :443
+                |                       |
+                +-----------+-----------+
+                            |
+                            v
+                         Nginx
+                    Reverse Proxy
+                            |
+                            v
+                    localhost:8000
+                            |
+                            v
+                    Docker Container
+                            |
+                            v
+                         FastAPI
+```
+
+Nginx is now the public-facing entry point.
+
+FastAPI remains behind the reverse proxy and is no longer intended to be accessed directly from the public internet.

@@ -1654,22 +1654,18 @@ This creates a dedicated Elastic IP address in the AWS account.
 
 ## Step 2 — Associate the Elastic IP with the EC2 Instance
 
-Select the newly allocated Elastic IP and choose:
+Select the newly allocated Elastic IP and choose **Actions → Associate Elastic IP address**.
 
-```text
-Actions → Associate Elastic IP address
+Configure the following:
 
-Configure:
+- **Resource type:** Instance
+- **Instance:** Select the Task Manager EC2 instance
 
-Resource type: Instance
-
-Select the Task Manager EC2 instance and choose:
-
-Associate
+Then choose **Associate**.
 
 The Elastic IP is now associated with the EC2 instance.
 
-Important Note — Public IP Change
+### Important Note — Public IP Change
 
 Associating the Elastic IP changes the instance's public IPv4 address.
 
@@ -1681,8 +1677,11 @@ After the association, the new Elastic IP should be obtained from the EC2 instan
 
 For example:
 
+```bash
 ssh -i MyServer.pem ubuntu@<elastic-ip>
-Cost Consideration
+```
+
+### Cost Consideration
 
 AWS charges for public IPv4 addresses.
 

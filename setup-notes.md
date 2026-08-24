@@ -1751,3 +1751,218 @@ nslookup serverab.duckdns.org
 The result should resolve the DuckDNS hostname to the configured Elastic IP.
 
 This confirms that the hostname can be translated into the public IP address of the EC2 instance.
+
+---
+
+# Part 16: Install Nginx as a Reverse Proxy
+
+## Goal
+
+Install Nginx and place it in front of the Dockerized FastAPI application.
+
+Before this change, the public request path was:
+
+```
+Client
+   |
+   v
+EC2 :8000
+   |
+   v
+Docker Container
+   |
+   v
+FastAPI
+```
+
+Nginx changes the architecture to:
+
+```
+Client
+   |
+   v
+Nginx :80
+   |
+   v
+localhost:8000
+   |
+   v
+Docker Container
+   |
+   v
+FastAPI
+```
+
+Nginx therefore becomes the public-facing web server and reverse proxy.
+
+
+## Step 1 — Update APT
+
+```bash
+sudo apt update
+```
+
+This refreshes the available package information.
+
+
+## Step 2 — Install Nginx
+
+```bash
+sudo apt install -y nginx
+```
+
+Ubuntu's Nginx package automatically starts the Nginx service after installation.
+
+Verify the service:
+
+```bash
+sudo systemctl status nginx
+```
+
+Expected:
+
+```
+Active: active (running)
+```
+
+
+## Step 3 — Verify Nginx Before Custom Configuration
+
+Before modifying the Nginx configuration, the default Nginx page was tested using the EC2 instance's public IP.
+
+Example:
+
+```
+http://<elastic-ip>
+```
+
+The default:
+
+```
+Welcome to nginx!
+```
+
+page confirms that:
+
+- Nginx is running.
+- Port 80 is reachable.
+- The AWS networking configuration permits HTTP traffic.
+- Nginx can serve requests successfully.
+
+This provides a known-good baseline before introducing the reverse-proxy configuration.
+
+
+## Step 4 — Create the Nginx Reverse Proxy Configuration
+
+Create:
+
+```bash
+sudo nano /etc/nginx/sites-available/api-server
+```
+
+Configuration:
+
+```nginx
+server {
+    listen 80;
+    server_name serverab.duckdns.org;
+
+    location / {
+        proxy_pass http://localhost:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+## Step 5 — Enable the Nginx Site
+
+Create a symbolic link:
+
+```bash
+sudo ln -s /etc/nginx/sites-available/api-server /etc/nginx/sites-enabled/
+```
+
+Nginx uses the configuration files linked from:
+
+```
+/etc/nginx/sites-enabled/
+```
+
+to determine which sites should be active.
+
+
+## Step 6 — Disable the Default Nginx Site
+
+Remove the default configuration link:
+
+```bash
+sudo rm /etc/nginx/sites-enabled/default
+```
+
+This prevents the default Nginx site from taking precedence over the Task Manager application configuration.
+
+
+## Step 7 — Validate the Nginx Configuration
+
+Before applying the configuration:
+
+```bash
+sudo nginx -t
+```
+
+Expected output includes:
+
+```
+syntax is ok
+test is successful
+```
+
+This validation should always be performed before reloading Nginx.
+
+It prevents an invalid configuration from being applied to the running service.
+
+
+## Step 8 — Reload Nginx
+
+Apply the configuration:
+
+```bash
+sudo systemctl reload nginx
+```
+
+A reload was used instead of a restart because Nginx can apply configuration changes without unnecessarily terminating existing connections.
+
+
+## Step 9 — Test the Reverse Proxy
+
+The application was tested through the DuckDNS domain:
+
+```
+http://serverab.duckdns.org/docs
+```
+
+The FastAPI Swagger UI should be returned.
+
+The request path is now:
+
+```
+Browser
+   |
+   v
+serverab.duckdns.org
+   |
+   v
+Nginx :80
+   |
+   v
+localhost:8000
+   |
+   v
+Docker
+   |
+   v
+FastAPI
+```

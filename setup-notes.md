@@ -1954,3 +1954,136 @@ Docker
    v
 FastAPI
 ```
+
+---
+
+# Part 17: Configure HTTPS with Let's Encrypt
+
+## Goal
+
+Secure the Task Manager API using HTTPS and a trusted TLS certificate issued by Let's Encrypt.
+
+The HTTP reverse proxy was established first because Let's Encrypt needs to verify control of the domain before issuing the certificate.
+
+---
+
+## Step 1 — Install Certbot
+
+Install Certbot and the Nginx integration:
+
+```bash
+sudo apt install -y certbot python3-certbot-nginx
+```
+
+The Nginx plugin allows Certbot to configure the Nginx HTTPS configuration automatically.
+
+---
+
+## Step 2 — Request and Install the Certificate
+
+Run:
+
+```bash
+sudo certbot --nginx -d serverab.duckdns.org
+```
+
+Certbot requests the certificate for:
+
+```
+serverab.duckdns.org
+```
+
+During the process, Certbot requests:
+
+- An email address for certificate-related notifications.
+- Agreement to the Let's Encrypt Terms of Service.
+- Whether HTTP traffic should be redirected to HTTPS.
+
+The HTTP-to-HTTPS redirect option was selected.
+
+### How Domain Validation Works
+
+Let's Encrypt must verify that the server controls the requested domain.
+
+For the HTTP validation process, Certbot temporarily creates a validation resource under:
+
+```
+/.well-known/acme-challenge/
+```
+
+Let's Encrypt's validation infrastructure then requests that resource through the public domain.
+
+The successful validation establishes control of:
+
+```
+serverab.duckdns.org
+```
+
+and allows Let's Encrypt to issue the certificate.
+
+This is why the following components needed to be working first:
+
+```
+DuckDNS
+   |
+   v
+Elastic IP
+   |
+   v
+EC2
+   |
+   v
+Nginx :80
+```
+
+---
+
+## Step 3 — Verify the Generated Nginx Configuration
+
+Certbot automatically modifies the Nginx configuration.
+
+The resulting configuration can be inspected with:
+
+```bash
+sudo cat /etc/nginx/sites-available/api-server
+```
+
+The configuration should now include HTTPS/TLS settings and the HTTP-to-HTTPS redirect.
+
+---
+
+## Step 4 — Verify HTTPS
+
+Open:
+
+```
+https://serverab.duckdns.org/docs
+```
+
+The FastAPI Swagger UI should load over HTTPS.
+
+The browser should also indicate that the connection is secured using a trusted Let's Encrypt certificate.
+
+The final request path becomes:
+
+```
+Browser
+   |
+   | HTTPS :443
+   v
+Nginx
+   |
+   | HTTP internally
+   v
+localhost:8000
+   |
+   v
+Docker Container
+   |
+   v
+FastAPI
+```
+
+TLS terminates at Nginx.
+
+The FastAPI application continues listening on port 8000 inside the host/Docker networking path.

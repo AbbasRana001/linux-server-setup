@@ -1965,8 +1965,6 @@ Secure the Task Manager API using HTTPS and a trusted TLS certificate issued by 
 
 The HTTP reverse proxy was established first because Let's Encrypt needs to verify control of the domain before issuing the certificate.
 
----
-
 ## Step 1 — Install Certbot
 
 Install Certbot and the Nginx integration:
@@ -1976,8 +1974,6 @@ sudo apt install -y certbot python3-certbot-nginx
 ```
 
 The Nginx plugin allows Certbot to configure the Nginx HTTPS configuration automatically.
-
----
 
 ## Step 2 — Request and Install the Certificate
 
@@ -2036,8 +2032,6 @@ EC2
 Nginx :80
 ```
 
----
-
 ## Step 3 — Verify the Generated Nginx Configuration
 
 Certbot automatically modifies the Nginx configuration.
@@ -2049,8 +2043,6 @@ sudo cat /etc/nginx/sites-available/api-server
 ```
 
 The configuration should now include HTTPS/TLS settings and the HTTP-to-HTTPS redirect.
-
----
 
 ## Step 4 — Verify HTTPS
 

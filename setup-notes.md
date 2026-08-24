@@ -1688,3 +1688,66 @@ AWS charges for public IPv4 addresses.
 Therefore, an Elastic IP should not be treated as completely free infrastructure.
 
 The address is required here because the deployment now needs a stable public endpoint for DNS and HTTPS.
+
+---
+
+# Part 15: Configure a Free DuckDNS Domain
+
+## Goal
+
+Create a domain name for the Task Manager server so that users can access the application through a hostname instead of directly using the Elastic IP address.
+
+The domain used for this deployment is:
+
+```
+serverab.duckdns.org
+```
+
+---
+
+## Step 1 — Create the DuckDNS Subdomain
+
+1. Open the DuckDNS website and authenticate using an available authentication provider.
+2. Create a subdomain under DuckDNS.
+
+For this deployment:
+
+```
+serverab.duckdns.org
+```
+
+was created.
+
+---
+
+## Step 2 — Point the Domain to the Elastic IP
+
+In the DuckDNS domain configuration, update the current IP address to the EC2 instance's Elastic IP.
+
+The DNS relationship is therefore:
+
+```
+serverab.duckdns.org
+        |
+        v
+Elastic IP
+        |
+        v
+EC2 Instance
+```
+
+Because the EC2 instance now has a stable Elastic IP, the DNS record does not need to be changed after normal EC2 stop/start operations.
+
+---
+
+## Step 3 — Verify DNS Resolution
+
+DNS resolution was checked from the local computer rather than from the EC2 server:
+
+```bash
+nslookup serverab.duckdns.org
+```
+
+The result should resolve the DuckDNS hostname to the configured Elastic IP.
+
+This confirms that the hostname can be translated into the public IP address of the EC2 instance.

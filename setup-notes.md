@@ -1636,8 +1636,6 @@ An EC2 instance's automatically assigned public IPv4 address can change when the
 
 An AWS Elastic IP provides a persistent public IPv4 address that can remain associated with the EC2 instance across stop/start cycles.
 
----
-
 ## Step 1 — Allocate an Elastic IP
 
 From the AWS EC2 console:
@@ -1649,8 +1647,6 @@ From the AWS EC2 console:
 5. Select **Allocate**.
 
 This creates a dedicated Elastic IP address in the AWS account.
-
----
 
 ## Step 2 — Associate the Elastic IP with the EC2 Instance
 
@@ -1689,8 +1685,6 @@ Therefore, an Elastic IP should not be treated as completely free infrastructure
 
 The address is required here because the deployment now needs a stable public endpoint for DNS and HTTPS.
 
----
-
 # Part 15: Configure a Free DuckDNS Domain
 
 ## Goal
@@ -1702,8 +1696,6 @@ The domain used for this deployment is:
 ```
 serverab.duckdns.org
 ```
-
----
 
 ## Step 1 — Create the DuckDNS Subdomain
 
@@ -1717,8 +1709,6 @@ serverab.duckdns.org
 ```
 
 was created.
-
----
 
 ## Step 2 — Point the Domain to the Elastic IP
 
@@ -1737,8 +1727,6 @@ EC2 Instance
 ```
 
 Because the EC2 instance now has a stable Elastic IP, the DNS record does not need to be changed after normal EC2 stop/start operations.
-
----
 
 ## Step 3 — Verify DNS Resolution
 

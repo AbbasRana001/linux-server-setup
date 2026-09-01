@@ -1573,7 +1573,7 @@ Therefore, systemd successfully started the Docker Compose application.
 
 ---
 
-# Part 13: Verify Reboot Persistence
+# Part 12: Verify Reboot Persistence
 
 **Goal**
 
@@ -1626,7 +1626,7 @@ The FastAPI Swagger UI endpoint should respond successfully.
 This confirms that the application was automatically restored after the EC2 instance reboot.
 
 ---
-# Part 14: Configure a Stable Public IP with an Elastic IP
+# Part 13: Configure a Stable Public IP with an Elastic IP
 
 ## Goal
 
@@ -1685,7 +1685,7 @@ Therefore, an Elastic IP should not be treated as completely free infrastructure
 
 The address is required here because the deployment now needs a stable public endpoint for DNS and HTTPS.
 
-# Part 15: Configure a Free DuckDNS Domain
+# Part 14: Configure a Free DuckDNS Domain
 
 ## Goal
 
@@ -1742,7 +1742,7 @@ This confirms that the hostname can be translated into the public IP address of 
 
 ---
 
-# Part 16: Install Nginx as a Reverse Proxy
+# Part 15: Install Nginx as a Reverse Proxy
 
 ## Goal
 
@@ -1957,7 +1957,7 @@ FastAPI
 
 ---
 
-# Part 17: Configure HTTPS with Let's Encrypt
+# Part 16: Configure HTTPS with Let's Encrypt
 
 ## Goal
 
@@ -2082,7 +2082,7 @@ The FastAPI application continues listening on port 8000 inside the host/Docker 
 
 ---
 
-# Part 18: Update UFW for the Reverse Proxy and HTTPS
+# Part 17: Update UFW for the Reverse Proxy and HTTPS
 
 ## Goal
 
@@ -2243,7 +2243,7 @@ Investigate logging at the system, application, traditional Linux, and Nginx lev
 document where logs are stored, how they are generated, and how they can be accessed during troubleshooting.
 
 
-## 9.1 System Logs
+## System Logs
 
 This server uses systemd's journal to collect logs from system services and processes managed by systemd.
 
@@ -2308,7 +2308,7 @@ drwxr-sr-x+ 3 root systemd-journal ... /var/log/journal/
 
 The presence of `/var/log/journal/` indicates that journal data is stored under the traditional `/var/log` hierarchy rather than existing only as temporary runtime data.
 
-## 9.2 Application Logs
+## Application Logs
 
 The FastAPI application runs inside the Docker container: `task-manager-api-1`
 
@@ -2359,7 +2359,7 @@ No custom Docker logging configuration was identified from this inspection.
 
 **Current logging approach:** Application logs are written by the container and collected by Docker using the `json-file` logging driver. They can be accessed using Docker Compose logs.
 
-## 9.3 Traditional Linux Log Files
+## Traditional Linux Log Files
 
 Linux also maintains traditional log files under: `/var/log/`
 
@@ -2450,7 +2450,7 @@ and compressed historical logs such as:
 
 This demonstrates that older log files are being rotated rather than remaining indefinitely in the active log file.
 
-## 9.4 Nginx Logs
+## Nginx Logs
 
 Nginx maintains its logs under: `/var/log/nginx/`
 
@@ -2537,7 +2537,7 @@ The presence of files such as:
 
 shows that Nginx's older logs are being rotated and compressed.
 
-## 9.5 Logging Architecture Summary
+## Logging Architecture Summary
 
 The current server has multiple logging layers:
 
